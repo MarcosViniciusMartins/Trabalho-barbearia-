@@ -1,0 +1,8 @@
+package com.barbearia.domain.exception;
+
+public class AgendamentoNotFoundException extends RuntimeException {
+
+    public AgendamentoNotFoundException(String mensagem) {
+        super(mensagem);
+    }
+}
