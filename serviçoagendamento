@@ -1,0 +1,22 @@
+package com.barbearia.domain.service;
+
+import com.barbearia.domain.model.Agendamento;
+import com.barbearia.domain.model.Cliente;
+import com.barbearia.domain.model.Servico;
+import com.barbearia.domain.observer.AgendamentoObserver;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+
+public interface IAgendamentoService {
+
+    Agendamento criar(Cliente cliente, Servico servico, LocalDateTime horario, String observacoes);
+
+    void cancelar(String agendamentoId);
+
+    List<Agendamento> listarPorDia(LocalDate dia);
+
+    void registrarObserver(AgendamentoObserver observer);
+}
