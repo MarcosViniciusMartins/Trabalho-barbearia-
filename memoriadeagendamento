@@ -1,0 +1,54 @@
+package com.barbearia.infrastructure.repository;
+
+import com.barbearia.domain.model.Agendamento;
+import com.barbearia.domain.repository.AgendamentoRepository;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Implementação que deoxa os agendamentos em memória.
+ * esta classe pode substituir qualquer outra implementação (por exemplo, uma futura
+ * sem quebrar o comportamento esperado).
+ * Muito útil para testes, demonstrações rápidos.
+ */
+public class InMemoryAgendamentoRepository implements AgendamentoRepository {
+
+    private final Map<String, Agendamento> dados = new ConcurrentHashMap<>();
+
+    @Override
+    public Agendamento salvar(Agendamento agendamento) {
+        dados.put(agendamento.getId(), agendamento);
+        return agendamento;
+    }
+
+    @Override
+    public Optional<Agendamento> buscarPorId(String id) {
+        return Optional.ofNullable(dados.get(id));
+    }
+
+    @Override
+    public List<Agendamento> listarPorDia(LocalDate dia) {
+        List<Agendamento> resultado = new ArrayList<>();
+        for (Agendamento agendamento : dados.values()) {
+            if (agendamento.getDataHora().toLocalDate().equals(dia)) {
+                resultado.add(agendamento);
+            }
+        }
+        return resultado;
+    }
+
+    @Override
+    public List<Agendamento> listarTodos() {
+        return new ArrayList<>(dados.values());
+    }
+
+    @Override
+    public void remover(String id) {
+        dados.remove(id);
+    }
+}
