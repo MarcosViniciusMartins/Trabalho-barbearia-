@@ -1,0 +1,113 @@
+package com.barbearia.domain;
+
+import com.barbearia.domain.model.Agendamento;
+import com.barbearia.domain.model.Cliente;
+import com.barbearia.domain.model.Servico;
+import com.barbearia.domain.model.StatusAgendamento;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.LocalDateTime;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+@DisplayName("Agendamento.Builder")
+class AgendamentoBuilderTest {
+
+    private final Cliente cliente = new Cliente("c1", "João Silva", "31999990000");
+    private final Servico servico = new Servico("s1", "Corte", Duration.ofMinutes(30), new BigDecimal("35.00"));
+    private final LocalDateTime horario = LocalDateTime.of(2026, 6, 25, 10, 0);
+
+    @Test
+    @DisplayName("deve construir um agendamento válido com todos os campos")
+    void deveConstruirAgendamentoValido() {
+        Agendamento agendamento = new Agendamento.Builder()
+                .cliente(cliente)
+                .servico(servico)
+                .dataHora(horario)
+                .observacoes("Cliente prefere tesoura")
+                .build();
+
+        assertNotNull(agendamento.getId());
+        assertEquals(cliente, agendamento.getCliente());
+        assertEquals(servico, agendamento.getServico());
+        assertEquals(horario, agendamento.getDataHora());
+        assertEquals("Cliente prefere tesoura", agendamento.getObservacoes());
+        assertEquals(StatusAgendamento.AGENDADO, agendamento.getStatus());
+    }
+
+    @Test
+    @DisplayName("deve usar status AGENDADO e observações vazias como padrão")
+    void deveUsarValoresPadrao() {
+        Agendamento agendamento = new Agendamento.Builder()
+                .cliente(cliente)
+                .servico(servico)
+                .dataHora(horario)
+                .build();
+
+        assertEquals(StatusAgendamento.AGENDADO, agendamento.getStatus());
+        assertEquals("", agendamento.getObservacoes());
+    }
+
+    @Test
+    @DisplayName("deve calcular data/hora de fim com base na duração do serviço")
+    void deveCalcularDataHoraFim() {
+        Agendamento agendamento = new Agendamento.Builder()
+                .cliente(cliente)
+                .servico(servico)
+                .dataHora(horario)
+                .build();
+
+        assertEquals(horario.plusMinutes(30), agendamento.getDataHoraFim());
+    }
+
+    @Test
+    @DisplayName("deve lançar exceção quando cliente não é informado")
+    void deveLancarExcecaoSemCliente() {
+        Agendamento.Builder builder = new Agendamento.Builder()
+                .servico(servico)
+                .dataHora(horario);
+
+        assertThrows(IllegalStateException.class, builder::build);
+    }
+
+    @Test
+    @DisplayName("deve lançar exceção quando serviço não é informado")
+    void deveLancarExcecaoSemServico() {
+        Agendamento.Builder builder = new Agendamento.Builder()
+                .cliente(cliente)
+                .dataHora(horario);
+
+        assertThrows(IllegalStateException.class, builder::build);
+    }
+
+    @Test
+    @DisplayName("deve lançar exceção quando data/hora não é informada")
+    void deveLancarExcecaoSemDataHora() {
+        Agendamento.Builder builder = new Agendamento.Builder()
+                .cliente(cliente)
+                .servico(servico);
+
+        assertThrows(IllegalStateException.class, builder::build);
+    }
+
+    @Test
+    @DisplayName("comStatus deve gerar uma nova instância imutável com status atualizado")
+    void comStatusDeveGerarNovaInstancia() {
+        Agendamento original = new Agendamento.Builder()
+                .cliente(cliente)
+                .servico(servico)
+                .dataHora(horario)
+                .build();
+
+        Agendamento cancelado = original.comStatus(StatusAgendamento.CANCELADO);
+
+        assertEquals(StatusAgendamento.AGENDADO, original.getStatus());
+        assertEquals(StatusAgendamento.CANCELADO, cancelado.getStatus());
+        assertEquals(original.getId(), cancelado.getId());
+    }
+}
