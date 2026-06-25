@@ -1,0 +1,96 @@
+package com.barbearia.domain;
+
+import com.barbearia.domain.model.Agendamento;
+import com.barbearia.domain.model.Cliente;
+import com.barbearia.domain.model.Servico;
+import com.barbearia.domain.model.StatusAgendamento;
+import com.barbearia.domain.validator.ConflictValidator;
+import com.barbearia.domain.validator.HorarioConflictValidator;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+@DisplayName("HorarioConflictValidator")
+class HorarioConflictValidatorTest {
+
+    private ConflictValidator validator;
+    private Cliente cliente;
+    private Servico servicoTrintaMin;
+    private LocalDateTime horarioBase;
+
+    @BeforeEach
+    void setUp() {
+        validator = new HorarioConflictValidator();
+        cliente = new Cliente("c1", "João Silva", "31999990000");
+        servicoTrintaMin = new Servico("s1", "Corte", Duration.ofMinutes(30), new BigDecimal("35.00"));
+        horarioBase = LocalDateTime.of(2026, 6, 25, 10, 0);
+    }
+
+    private Agendamento criarAgendamento(LocalDateTime horario, StatusAgendamento status) {
+        return new Agendamento.Builder()
+                .cliente(cliente)
+                .servico(servicoTrintaMin)
+                .dataHora(horario)
+                .status(status)
+                .build();
+    }
+
+    @Test
+    @DisplayName("deve detectar conflito quando o novo horário se sobrepõe a um existente")
+    void deveDetectarConflitoComSobreposicao() {
+        Agendamento existente = criarAgendamento(horarioBase, StatusAgendamento.AGENDADO);
+        Agendamento novo = criarAgendamento(horarioBase.plusMinutes(10), StatusAgendamento.AGENDADO);
+
+        assertTrue(validator.existeConflito(List.of(existente), novo));
+    }
+
+    @Test
+    @DisplayName("não deve detectar conflito quando os horários não se sobrepõem")
+    void naoDeveDetectarConflitoSemSobreposicao() {
+        Agendamento existente = criarAgendamento(horarioBase, StatusAgendamento.AGENDADO);
+        // serviço dura 30 min, então 10:30 já está livre
+        Agendamento novo = criarAgendamento(horarioBase.plusMinutes(30), StatusAgendamento.AGENDADO);
+
+        assertFalse(validator.existeConflito(List.of(existente), novo));
+    }
+
+    @Test
+    @DisplayName("não deve considerar conflito com agendamentos cancelados")
+    void naoDeveConsiderarAgendamentosCancelados() {
+        Agendamento existenteCancelado = criarAgendamento(horarioBase, StatusAgendamento.CANCELADO);
+        Agendamento novo = criarAgendamento(horarioBase.plusMinutes(10), StatusAgendamento.AGENDADO);
+
+        assertFalse(validator.existeConflito(List.of(existenteCancelado), novo));
+    }
+
+    @Test
+    @DisplayName("não deve considerar conflito com o próprio agendamento (mesmo id)")
+    void naoDeveConsiderarConflitoComEleMesmo() {
+        Agendamento existente = criarAgendamento(horarioBase, StatusAgendamento.AGENDADO);
+
+        assertFalse(validator.existeConflito(List.of(existente), existente));
+    }
+
+    @Test
+    @DisplayName("deve detectar conflito quando um intervalo contém totalmente o outro")
+    void deveDetectarConflitoQuandoIntervaloContemOutro() {
+        Servico servicoLongo = new Servico("s2", "Combo", Duration.ofMinutes(90), new BigDecimal("60.00"));
+        Agendamento existenteLongo = new Agendamento.Builder()
+                .cliente(cliente)
+                .servico(servicoLongo)
+                .dataHora(horarioBase)
+                .build();
+
+        Agendamento novoCurto = criarAgendamento(horarioBase.plusMinutes(15), StatusAgendamento.AGENDADO);
+
+        assertTrue(validator.existeConflito(List.of(existenteLongo), novoCurto));
+    }
+}
