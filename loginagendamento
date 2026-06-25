@@ -1,0 +1,65 @@
+package com.barbearia.domain.service;
+
+import com.barbearia.domain.model.Agendamento;
+import com.barbearia.domain.model.Cliente;
+import com.barbearia.domain.model.Servico;
+import com.barbearia.domain.observer.AgendamentoObserver;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.logging.Logger;
+
+/**
+ * Padrão de estrutura.
+ *Adiciona log de auditoria a qualquer {@link IAgendamentoService} sem
+ * modificar a implementação da base. Como implementa o mesmo contrato que
+ * decora, pode ser usado em qualquer lugar onde se espera um
+
+public class LoggingAgendamentoService implements IAgendamentoService {
+
+    private static final Logger LOGGER = Logger.getLogger(LoggingAgendamentoService.class.getName());
+
+    private final IAgendamentoService delegate;
+
+    public LoggingAgendamentoService(IAgendamentoService delegate) {
+        this.delegate = delegate;
+    }
+
+    @Override
+    public Agendamento criar(Cliente cliente, Servico servico, LocalDateTime horario, String observacoes) {
+        LOGGER.info(() -> "Criando agendamento: cliente=%s, servico=%s, horario=%s"
+                .formatted(cliente.getNome(), servico.getNome(), horario));
+        try {
+            Agendamento criado = delegate.criar(cliente, servico, horario, observacoes);
+            LOGGER.info(() -> "Agendamento criado com sucesso: id=" + criado.getId());
+            return criado;
+        } catch (RuntimeException e) {
+            LOGGER.warning("Falha ao criar agendamento: " + e.getMessage());
+            throw e;
+        }
+    }
+
+    @Override
+    public void cancelar(String agendamentoId) {
+        LOGGER.info("Cancelando agendamento: id=" + agendamentoId);
+        try {
+            delegate.cancelar(agendamentoId);
+            LOGGER.info("Agendamento cancelado com sucesso: id=" + agendamentoId);
+        } catch (RuntimeException e) {
+            LOGGER.warning("Falha ao cancelar agendamento: " + e.getMessage());
+            throw e;
+        }
+    }
+
+    @Override
+    public List<Agendamento> listarPorDia(LocalDate dia) {
+        LOGGER.fine("Listando agendamentos do dia: " + dia);
+        return delegate.listarPorDia(dia);
+    }
+
+    @Override
+    public void registrarObserver(AgendamentoObserver observer) {
+        delegate.registrarObserver(observer);
+    }
+}
