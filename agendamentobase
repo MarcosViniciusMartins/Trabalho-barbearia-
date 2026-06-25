@@ -1,0 +1,86 @@
+package com.barbearia.domain.service;
+
+import com.barbearia.domain.exception.AgendamentoNotFoundException;
+import com.barbearia.domain.exception.ConflictException;
+import com.barbearia.domain.model.Agendamento;
+import com.barbearia.domain.model.Cliente;
+import com.barbearia.domain.model.Servico;
+import com.barbearia.domain.model.StatusAgendamento;
+import com.barbearia.domain.observer.AgendamentoObserver;
+import com.barbearia.domain.repository.AgendamentoRepository;
+import com.barbearia.domain.validator.ConflictValidator;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Implementação principal das regras de negócio de agendamento.
+ * esta classe cuida  das regras de agendamento (criar, cancelar, listar, notificar)
+
+public class AgendamentoService implements IAgendamentoService {
+
+    private final AgendamentoRepository repository;
+    private final ConflictValidator conflictValidator;
+    private final List<AgendamentoObserver> observers = new ArrayList<>();
+
+    public AgendamentoService(AgendamentoRepository repository, ConflictValidator conflictValidator) {
+        this.repository = repository;
+        this.conflictValidator = conflictValidator;
+    }
+
+    @Override
+    public Agendamento criar(Cliente cliente, Servico servico, LocalDateTime horario, String observacoes) {
+        Agendamento novoAgendamento = new Agendamento.Builder()
+                .cliente(cliente)
+                .servico(servico)
+                .dataHora(horario)
+                .observacoes(observacoes)
+                .status(StatusAgendamento.AGENDADO)
+                .build();
+
+        List<Agendamento> agendamentosDoDia = repository.listarPorDia(horario.toLocalDate());
+
+        if (conflictValidator.existeConflito(agendamentosDoDia, novoAgendamento)) {
+            throw new ConflictException(
+                    "Já existe um agendamento que conflita com o horário " + horario);
+        }
+
+        Agendamento salvo = repository.salvar(novoAgendamento);
+        notificarCriacao(salvo);
+        return salvo;
+    }
+
+    @Override
+    public void cancelar(String agendamentoId) {
+        Agendamento agendamento = repository.buscarPorId(agendamentoId)
+                .orElseThrow(() -> new AgendamentoNotFoundException(agendamentoId));
+
+        Agendamento cancelado = agendamento.comStatus(StatusAgendamento.CANCELADO);
+        repository.salvar(cancelado);
+        notificarCancelamento(cancelado);
+    }
+
+    @Override
+    public List<Agendamento> listarPorDia(LocalDate dia) {
+        return repository.listarPorDia(dia);
+    }
+
+    @Override
+    public void registrarObserver(AgendamentoObserver observer) {
+        observers.add(observer);
+    }
+
+    private void notificarCriacao(Agendamento agendamento) {
+        for (AgendamentoObserver observer : observers) {
+            observer.aoCriar(agendamento);
+        }
+    }
+
+    private void notificarCancelamento(Agendamento agendamento) {
+        for (AgendamentoObserver observer : observers) {
+            observer.aoCancelar(agendamento);
+        }
+    }
+}
