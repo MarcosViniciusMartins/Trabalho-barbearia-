@@ -1,0 +1,67 @@
+package com.barbearia;
+
+import com.barbearia.domain.exception.ConflictException;
+import com.barbearia.domain.model.Agendamento;
+import com.barbearia.domain.model.Cliente;
+import com.barbearia.domain.model.Servico;
+import com.barbearia.domain.observer.EmailNotificador;
+import com.barbearia.domain.observer.LogNotificador;
+import com.barbearia.domain.repository.AgendamentoRepository;
+import com.barbearia.domain.service.AgendamentoService;
+import com.barbearia.domain.service.IAgendamentoService;
+import com.barbearia.domain.service.LoggingAgendamentoService;
+import com.barbearia.domain.validator.ConflictValidator;
+import com.barbearia.domain.validator.HorarioConflictValidator;
+import com.barbearia.infrastructure.repository.InMemoryAgendamentoRepository;
+
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.LocalDateTime;
+
+public class Main {
+
+    public static void main(String[] args) {
+        AgendamentoRepository repository = new InMemoryAgendamentoRepository();
+        ConflictValidator validator = new HorarioConflictValidator();
+
+        IAgendamentoService service = new AgendamentoService(repository, validator);
+        IAgendamentoService loggedService = new LoggingAgendamentoService(service);
+
+        loggedService.registrarObserver(new LogNotificador());
+        loggedService.registrarObserver(new EmailNotificador());
+
+        Cliente joao = new Cliente("c1", "João Silva", "(31) 99999-0001");
+        Cliente maria = new Cliente("c2", "Maria Souza", "(31) 99999-0002");
+
+        Servico corte = new Servico("s1", "Corte de Cabelo", Duration.ofMinutes(30), new BigDecimal("35.00"));
+        Servico barba = new Servico("s2", "Barba", Duration.ofMinutes(20), new BigDecimal("25.00"));
+
+        LocalDateTime horario = LocalDateTime.of(2026, 6, 25, 10, 0);
+
+        System.out.println("== Criando primeiro agendamento ==");
+        Agendamento ag1 = loggedService.criar(joao, corte, horario, "Cliente prefere tesoura");
+        System.out.println("Criado: " + ag1);
+
+        System.out.println("\n== Tentando criar agendamento conflitante ==");
+        try {
+            loggedService.criar(maria, barba, horario.plusMinutes(10), "");
+        } catch (ConflictException e) {
+            System.out.println("Conflito detectado como esperado: " + e.getMessage());
+        }
+
+        System.out.println("\n== Criando agendamento sem conflito ==");
+        Agendamento ag2 = loggedService.criar(maria, barba, horario.plusMinutes(30), "");
+        System.out.println("Criado: " + ag2);
+
+        System.out.println("\n== Listando agenda do dia ==");
+        loggedService.listarPorDia(horario.toLocalDate())
+                .forEach(System.out::println);
+
+        System.out.println("\n== Cancelando primeiro agendamento ==");
+        loggedService.cancelar(ag1.getId());
+
+        System.out.println("\n== Agenda após cancelamento ==");
+        loggedService.listarPorDia(horario.toLocalDate())
+                .forEach(System.out::println);
+    }
+}
